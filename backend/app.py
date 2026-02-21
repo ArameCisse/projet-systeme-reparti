@@ -4,9 +4,9 @@ import os
 
 app = Flask(__name__)
 
-# ===============================
+
 # CONFIGURATION BASE DE DONNÉES
-# ===============================
+
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
     "DATABASE_URL",
@@ -16,9 +16,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# ===============================
+
 # MODÈLES
-# ===============================
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -30,9 +30,8 @@ class Product(db.Model):
     name = db.Column(db.String(100))
     price = db.Column(db.Float)
 
-# ===============================
+
 # ROUTES
-# ===============================
 
 @app.route('/')
 def home():
@@ -92,9 +91,8 @@ def add_product():
 
     return jsonify({"message": "Produit ajouté avec succès"})
 
-# ===============================
+
 # MAIN
-# ===============================
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
