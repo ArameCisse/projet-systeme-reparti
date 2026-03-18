@@ -1,0 +1,118 @@
+- name: Common setup (packages, updates)
+  hosts: all
+  become: true
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install base packages
+      ansible.builtin.apt:
+        name:
+          - curl
+          - git
+          - ca-certificates
+        state: present
+
+- name: Install Docker and Kubernetes tools on k8s host
+  hosts: k8s
+  become: true
+  tasks:
+    # NOTE: Docker est déjà installé sur la machine locale.
+    # Sur un serveur "propre", décommentez ces tâches pour installer Docker automatiquement.
+    # - name: Install Docker
+    #   ansible.builtin.apt:
+    #     name: docker.io
+    #     state: present
+    #
+    # - name: Enable and start Docker
+    #   ansible.builtin.systemd:
+    #     name: docker
+    #     enabled: true
+    #     state: started
+
+    - name: Install kubectl
+      ansible.builtin.apt:
+        name: kubectl
+        state: present
+      # Sur une machine "propre", il faut d'abord ajouter le dépôt officiel Kubernetes
+      # pour que le paquet kubectl existe. En local sur ta machine, on ignore l'erreur
+      # pour ne pas casser le playbook de démonstration.
+      ignore_errors: true
+
+    - name: Install Minikube (simple local cluster)
+      ansible.builtin.get_url:
+        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        dest: /usr/local/bin/minikube
+        mode: '0755'
+
+    - name: Start Minikube (may take a few minutes)
+      become: false  # minikube refuse d'être lancé en root avec le driver docker
+      ansible.builtin.command: minikube start --driver=docker
+      args:
+        creates: /root/.minikube
+      ignore_errors: true  # en local: si minikube tourne déjà, on n'arrête pas le playbook
+
+- name: Install Jenkins (Docker container) on jenkins host
+  hosts: jenkins
+  become: true
+  tasks:
+    # NOTE: Docker est déjà installé sur la machine locale.
+    # Sur un serveur Jenkins dédié, décommentez ce bloc pour installer Docker.
+    # - name: Ensure Docker is installed
+    #   ansible.builtin.apt:
+    #     name: docker.io
+    #     state: present
+
+    - name: Run Jenkins container
+      ansible.builtin.command: >
+        docker run -d --name jenkins
+        -p 8081:8080 -p 50000:50000
+        -v jenkins_home:/var/jenkins_home
+        -v /var/run/docker.sock:/var/run/docker.sock
+        jenkins/jenkins:lts-jdk17
+      args:
+        creates: /var/lib/docker/volumes/jenkins_home
+      # Sur ta machine, le téléchargement de l'image Jenkins dépend de la connexion à Docker Hub.
+      # Si le réseau est indisponible, on ignore l'erreur pour ne pas bloquer le playbook.
+      ignore_errors: true
+
+- name: Deploy application to Kubernetes
+  hosts: k8s
+  become: true
+  vars:
+    project_root: /opt/projet-systeme-reparti
+  tasks:
+    - name: Ensure project directory exists
+      ansible.builtin.file:
+        path: "{{ project_root }}"
+        state: directory
+
+    - name: Copy project files to k8s host (simplified)
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/.."
+        dest: "{{ project_root }}"
+        owner: "{{ ansible_user | default('root') }}"
+        group: "{{ ansible_user | default('root') }}"
+        mode: '0755'
+
+    - name: Use Minikube Docker daemon for builds
+      ansible.builtin.shell: |
+        eval "$(minikube docker-env)" && \
+        docker build -t projet-systeme-reparti-backend:latest -f backend/Dockerfile . && \
+        docker build -t projet-systeme-reparti-frontend:latest -f frontend/Dockerfile .
+      args:
+        chdir: "{{ project_root }}"
+
+    - name: Apply Kubernetes manifests
+      ansible.builtin.shell: |
+        kubectl apply -f k8s/namespace.yaml
+        kubectl apply -f k8s/configmap.yaml
+        kubectl apply -f k8s/secret.yaml
+        kubectl apply -f k8s/postgres.yaml
+        kubectl apply -f k8s/backend.yaml
+        kubectl apply -f k8s/frontend.yaml
+      args:
+        chdir: "{{ project_root }}"
+
