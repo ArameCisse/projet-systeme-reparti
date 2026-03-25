@@ -4,7 +4,7 @@ pipeline {
     environment {
         // Adapter ces valeurs selon ton Docker Hub / registry
         REGISTRY       = "docker.io"
-        IMAGE_PREFIX   = "YOUR_DOCKERHUB_USERNAME/projet-systeme-reparti"
+        IMAGE_PREFIX   = "aramecisse/projet-systeme-reparti"
         KUBE_NAMESPACE = "projet-sr"
     }
 
