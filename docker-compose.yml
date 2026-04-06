@@ -47,5 +47,19 @@ services:
     ports:
       - "3000:3000"
 
+  jenkins:
+    image: jenkins/jenkins:lts
+    user: root
+    privileged: true
+    ports:
+      - "8081:8080" # Accès via localhost:8081
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock # Permet à Jenkins de builder tes images Docker
+    depends_on:
+      - backend
+
 volumes:
   db_data:
+  jenkins_home:
