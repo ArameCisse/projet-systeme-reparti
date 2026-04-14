@@ -14,12 +14,11 @@ pipeline {
 
         stage("Backend - Lint & Tests") {
             steps {
-                // On utilise une image Python pour lancer les tests sans rien installer sur Jenkins
+                // Utilisation de ${WORKSPACE} pour garantir le bon chemin du volume
                 sh '''
-                docker run --rm -v $(pwd):/app -w /app python:3.11-slim sh -c "
+                docker run --rm -v ${WORKSPACE}:/app -w /app python:3.11-slim sh -c "
                     pip install --no-cache-dir -r backend/requirements.txt && 
-                    cd backend && 
-                    python manage.py test
+                    python backend/manage.py test
                 "
                 '''
             }
@@ -27,9 +26,9 @@ pipeline {
 
         stage("Frontend - Build") {
             steps {
-                // On utilise une image Node pour builder le frontend
+                // Utilisation de ${WORKSPACE} pour garantir le bon chemin du volume
                 sh '''
-                docker run --rm -v $(pwd):/app -w /app node:20-slim sh -c "
+                docker run --rm -v ${WORKSPACE}:/app -w /app node:20-slim sh -c "
                     cd frontend && 
                     npm install && 
                     npm run build
@@ -40,7 +39,6 @@ pipeline {
 
         stage("Docker Build & Push") {
             steps {
-                // Assure-toi d'avoir créé l'identifiant "dockerhub" dans Jenkins -> Manage Jenkins -> Credentials
                 withCredentials([usernamePassword(credentialsId: "dockerhub", usernameVariable: "DOCKER_USER", passwordVariable: "DOCKER_PASS")]) {
                     sh '''
                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
@@ -57,7 +55,6 @@ pipeline {
 
         stage("Deploy to Kubernetes") {
             steps {
-                // Cette étape nécessite le plugin "Kubernetes CLI" et un fichier kubeconfig configuré
                 script {
                     try {
                         withKubeConfig(credentialsId: "kubeconfig") {
