@@ -14,9 +14,9 @@ pipeline {
 
         stage("Backend - Lint & Tests") {
             steps {
-                // Utilisation de ${WORKSPACE} pour garantir le bon chemin du volume
+                // Utilisation du chemin absolu de l'hôte pour garantir que Docker trouve les fichiers
                 sh '''
-                docker run --rm -v ${WORKSPACE}:/app -w /app python:3.11-slim sh -c "
+                docker run --rm -v /home/arame/projet-systeme-reparti:/app -w /app python:3.11-slim sh -c "
                     pip install --no-cache-dir -r backend/requirements.txt && 
                     python backend/manage.py test
                 "
@@ -26,9 +26,9 @@ pipeline {
 
         stage("Frontend - Build") {
             steps {
-                // Utilisation de ${WORKSPACE} pour garantir le bon chemin du volume
+                // Utilisation du chemin absolu de l'hôte
                 sh '''
-                docker run --rm -v ${WORKSPACE}:/app -w /app node:20-slim sh -c "
+                docker run --rm -v /home/arame/projet-systeme-reparti:/app -w /app node:20-slim sh -c "
                     cd frontend && 
                     npm install && 
                     npm run build
